@@ -1,0 +1,60 @@
+groups:
+  - name: cicd_anomaly_alerts
+    interval: 30s
+    rules:
+      - alert: HighAnomalyRate
+        expr: rate(cicd_anomaly_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High anomaly detection rate"
+          description: "Anomaly detection rate is {{ $value }} anomalies/sec"
+
+      - alert: BuildDurationAnomaly
+        expr: cicd_anomaly_score{metric_type="duration"} > 3
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Build duration anomaly detected for {{ $labels.job_name }}"
+          description: "Anomaly score: {{ $value }}"
+
+      - alert: HighFailureRate
+        expr: |
+          sum(rate(cicd_build_total{result="FAILURE"}[5m])) 
+          / 
+          sum(rate(cicd_build_total[5m])) > 0.3
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High build failure rate"
+          description: "Failure rate is {{ $value | humanizePercentage }}"
+
+      - alert: ModelNotTrained
+        expr: cicd_model_accuracy == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "ML model not trained"
+          description: "The anomaly detection model has not been trained"
+
+      - alert: StaleModelTraining
+        expr: (time() - cicd_model_last_trained_timestamp) > 172800
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Model training is stale"
+          description: "Model hasn't been retrained in over 48 hours"
+
+      - alert: LongQueueTime
+        expr: histogram_quantile(0.95, rate(cicd_queue_time_seconds_bucket[5m])) > 300
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Long queue times detected"
+          description: "95th percentile queue time is {{ $value }}s"

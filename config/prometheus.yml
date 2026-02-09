@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'cicd-anomaly-detection'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'cicd-anomaly-detector'
+    static_configs:
+      - targets: ['localhost:8000']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  - job_name: 'jenkins'
+    static_configs:
+      - targets: ['localhost:8080']
+    metrics_path: '/prometheus'
+    scheme: http
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files:
+  - 'alert_rules.yml'

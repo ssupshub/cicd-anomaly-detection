@@ -1,0 +1,43 @@
+# Configuration for CI/CD Anomaly Detection System
+
+# Data Collection
+JENKINS_URL: "http://localhost:8080"
+JENKINS_USER: "admin"
+JENKINS_TOKEN: "your_jenkins_token_here"
+
+GITHUB_TOKEN: "your_github_token_here"
+GITHUB_REPO: "owner/repo"
+
+# Prometheus
+PROMETHEUS_URL: "http://localhost:9090"
+PROMETHEUS_PORT: 8000
+
+# Model Training
+TRAINING_INTERVAL_HOURS: 24
+ANOMALY_THRESHOLD: 2.5  # Standard deviations
+MIN_TRAINING_SAMPLES: 100
+
+# Features to monitor
+FEATURES:
+  - build_duration
+  - test_count
+  - failure_count
+  - cpu_usage
+  - memory_usage
+  - queue_time
+  - step_count
+
+# Alerting
+ALERT_WEBHOOK_URL: ""
+SLACK_WEBHOOK_URL: ""
+EMAIL_ALERTS: false
+
+# Storage
+DATA_DIR: "./data"
+MODEL_DIR: "./models"
+LOG_DIR: "./logs"
+
+# API
+API_HOST: "0.0.0.0"
+API_PORT: 5000
+DEBUG: true
