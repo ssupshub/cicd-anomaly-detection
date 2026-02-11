@@ -1,10 +1,10 @@
 # CI/CD Anomaly Detection System - Project Overview
 
-##  Project Description
+## 🎯 Project Description
 
 A production-ready AI-powered anomaly detection system for CI/CD pipelines. Automatically learns normal pipeline behavior and alerts when unusual patterns are detected, helping teams identify issues before they impact production.
 
-##  Key Features
+## 📊 Key Features
 
 ### 1. Multi-Source Data Collection
 - **Jenkins Integration**: Collects build metrics via Jenkins REST API
@@ -34,7 +34,7 @@ A production-ready AI-powered anomaly detection system for CI/CD pipelines. Auto
 - **Report Generation**: Summary statistics and insights
 - **Pipeline Automation**: One-click full workflow execution
 
-##  Technical Architecture
+## 🏗️ Technical Architecture
 
 ```
 Data Sources (Jenkins/GitHub)
@@ -48,7 +48,7 @@ Data Sources (Jenkins/GitHub)
      Grafana     Alert Manager
 ```
 
-##  Components
+## 📦 Components
 
 ### Core Modules
 
@@ -83,7 +83,7 @@ Data Sources (Jenkins/GitHub)
 - `Dockerfile` - Application container
 - `dashboards/` - Grafana dashboard JSON
 
-##  Machine Learning Approach
+## 🔬 Machine Learning Approach
 
 ### Training Phase
 1. Collect 100-200 historical builds
@@ -110,7 +110,7 @@ Data Sources (Jenkins/GitHub)
 - Job count
 - Duration per test (derived)
 
-##  Metrics Tracked
+## 📈 Metrics Tracked
 
 ### Build Metrics
 - Total builds by result (SUCCESS/FAILURE)
@@ -130,7 +130,7 @@ Data Sources (Jenkins/GitHub)
 - Model training timestamp
 - Storage usage
 
-##  Deployment Options
+## 🚀 Deployment Options
 
 ### 1. Docker Compose (Recommended)
 ```bash
@@ -147,7 +147,7 @@ python scheduler.py        # Terminal 2
 ### 3. Kubernetes
 Use provided Docker image with K8s manifests (to be added)
 
-##  Configuration Options
+## 🔧 Configuration Options
 
 ### Model Tuning
 - `contamination`: Expected anomaly rate (0.05-0.15)
@@ -164,7 +164,7 @@ Use provided Docker image with K8s manifests (to be added)
 - `batch_alerts`: Group multiple anomalies
 - `alert_channels`: Slack, email, webhook
 
-##  Example Use Cases
+## 📊 Example Use Cases
 
 ### 1. Slow Build Detection
 **Scenario**: Build duration suddenly increases  
@@ -190,7 +190,7 @@ Use provided Docker image with K8s manifests (to be added)
 **Alert**: "Unusual pattern in deploy-prod job"  
 **Action**: Validate new process
 
-##  How to Use
+## 🎓 How to Use
 
 ### Initial Setup (One-time)
 ```bash
@@ -228,7 +228,7 @@ curl http://localhost:5000/api/v1/status  # Check status
 4. Adjust thresholds if necessary
 ```
 
-##  Security Considerations
+## 🔒 Security Considerations
 
 - Store credentials in `.env` (git-ignored)
 - Use API tokens, not passwords
@@ -238,7 +238,7 @@ curl http://localhost:5000/api/v1/status  # Check status
 - Limit Jenkins user to read-only
 - Use network policies in K8s
 
-##  Performance
+## 📈 Performance
 
 ### Scalability
 - Handles 1000+ builds/day
@@ -252,7 +252,7 @@ curl http://localhost:5000/api/v1/status  # Check status
 - Prometheus: 200-500MB RAM
 - Grafana: 100-200MB RAM
 
-##  Troubleshooting
+## 🐛 Troubleshooting
 
 ### Model Not Training
 - Ensure 100+ metrics collected
@@ -274,7 +274,7 @@ curl http://localhost:5000/api/v1/status  # Check status
 - Check network connectivity
 - Verify API endpoints accessible
 
-##  Future Enhancements
+## 📝 Future Enhancements
 
 - [ ] Deep learning (LSTM) for time series
 - [ ] Multi-variate correlation analysis
@@ -285,15 +285,15 @@ curl http://localhost:5000/api/v1/status  # Check status
 - [ ] Web UI dashboard
 - [ ] Mobile app notifications
 
-##  Contributing
+## 🤝 Contributing
 
 See README.md for contribution guidelines.
 
-##  License
+## 📄 License
 
 MIT License - Free for commercial and personal use
 
-##  Support
+## 📞 Support
 
 - Issues: GitHub issue tracker
 - Docs: README.md, API.md
@@ -303,5 +303,5 @@ MIT License - Free for commercial and personal use
 ---
 
 **Version**: 1.0.0  
-**Last Updated**: February 2026 
+**Last Updated**: February 2024  
 **Status**: Production Ready ✅

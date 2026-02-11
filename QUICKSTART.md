@@ -1,9 +1,8 @@
-# Quick Start Guide - CI/CD Anomaly Detection System
+# 🚀 Quick Start Guide - CI/CD Anomaly Detection System
 
-## 5-Minute Setup
+## ⚡ 5-Minute Setup
 
 ### Prerequisites
-
 - Python 3.8+
 - Docker & Docker Compose (optional, recommended)
 - Jenkins or GitHub repository (for production use)
@@ -24,9 +23,9 @@ nano .env  # Add your Jenkins/GitHub credentials
 python demo.py
 ```
 
-## Three Ways to Run
+## 🎯 Three Ways to Run
 
-### Option 1: Docker Compose (Easiest)
+### Option 1: Docker Compose (Easiest) ⭐
 
 ```bash
 # Start everything (API, Scheduler, Prometheus, Grafana)
@@ -75,7 +74,7 @@ curl -X POST http://localhost:5000/api/v1/train
 curl -X POST http://localhost:5000/api/v1/detect
 ```
 
-## First-Time Workflow
+## 📊 First-Time Workflow
 
 ```bash
 # 1. Collect historical data (need 100+ builds)
@@ -96,7 +95,7 @@ curl http://localhost:5000/api/v1/status
 curl http://localhost:5000/api/v1/anomalies?hours=24
 ```
 
-## Setting Up Alerts
+## 🔔 Setting Up Alerts
 
 ### Slack Integration
 
@@ -114,7 +113,6 @@ curl http://localhost:5000/api/v1/anomalies?hours=24
 ### Email Alerts
 
 Add to `.env`:
-
 ```
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
@@ -123,7 +121,7 @@ SMTP_PASSWORD=your-app-password
 ALERT_EMAIL=team@company.com
 ```
 
-## Using Grafana
+## 📈 Using Grafana
 
 1. Access: http://localhost:3000
 2. Login: admin/admin
@@ -132,10 +130,9 @@ ALERT_EMAIL=team@company.com
    - Upload: `dashboards/grafana-dashboard.json`
 4. View real-time metrics
 
-## API Examples
+## 🎮 API Examples
 
 ### Collect from Jenkins
-
 ```bash
 curl -X POST http://localhost:5000/api/v1/collect \
   -H "Content-Type: application/json" \
@@ -146,7 +143,6 @@ curl -X POST http://localhost:5000/api/v1/collect \
 ```
 
 ### Collect from GitHub
-
 ```bash
 curl -X POST http://localhost:5000/api/v1/collect \
   -H "Content-Type: application/json" \
@@ -157,7 +153,6 @@ curl -X POST http://localhost:5000/api/v1/collect \
 ```
 
 ### Train with Custom Settings
-
 ```bash
 curl -X POST http://localhost:5000/api/v1/train \
   -H "Content-Type: application/json" \
@@ -168,7 +163,6 @@ curl -X POST http://localhost:5000/api/v1/train \
 ```
 
 ### Detect with Custom Threshold
-
 ```bash
 curl -X POST http://localhost:5000/api/v1/detect \
   -H "Content-Type: application/json" \
@@ -179,12 +173,11 @@ curl -X POST http://localhost:5000/api/v1/detect \
 ```
 
 ### Get Summary Report
-
 ```bash
 curl http://localhost:5000/api/v1/report | jq .
 ```
 
-## Testing Individual Components
+## 🧪 Testing Individual Components
 
 ```bash
 # Test Jenkins collector
@@ -203,17 +196,15 @@ python ml/data_storage.py
 pytest tests/ -v
 ```
 
-## Common Issues
+## 🐛 Common Issues
 
 ### "Model not trained"
-
 ```bash
 # Solution: Train the model first
 curl -X POST http://localhost:5000/api/v1/train
 ```
 
 ### "Not enough data"
-
 ```bash
 # Solution: Collect more metrics
 curl -X POST http://localhost:5000/api/v1/collect \
@@ -221,7 +212,6 @@ curl -X POST http://localhost:5000/api/v1/collect \
 ```
 
 ### "Connection refused"
-
 ```bash
 # Solution: Check credentials in .env
 # Test Jenkins connection:
@@ -229,17 +219,15 @@ curl -u username:token http://jenkins-url/api/json
 ```
 
 ### No anomalies detected
-
 ```bash
 # Solution: Lower the threshold
 curl -X POST http://localhost:5000/api/v1/detect \
   -d '{"threshold": 2.0}'
 ```
 
-## Understanding Results
+## 📊 Understanding Results
 
 ### Anomaly Response Example
-
 ```json
 {
   "index": 5,
@@ -261,40 +249,35 @@ curl -X POST http://localhost:5000/api/v1/detect \
 ```
 
 **What this means:**
-
 - Build took 800s instead of expected 300s
 - Z-score of 4.5 = very unusual (>99.99% probability of anomaly)
 - Build failed, worth investigating
 
-## Configuration Tips
+## 🔧 Configuration Tips
 
 ### Adjust Sensitivity
 
 **Too many false positives?**
-
 - Increase threshold: `"threshold": 3.5`
 - Increase contamination: `"contamination": 0.15`
 
 **Missing real issues?**
-
 - Decrease threshold: `"threshold": 2.0`
 - Decrease contamination: `"contamination": 0.05`
 
 ### Optimize Performance
 
 **Large datasets:**
-
 - Limit collection: `"count": 100`
 - Use sampling for training
 - Schedule training for off-hours
 
 **Frequent alerts:**
-
 - Batch alerts in scheduler
 - Set minimum severity threshold
 - Use digest mode (hourly summary)
 
-## Production Checklist
+## 🎯 Production Checklist
 
 - [ ] Configure real Jenkins/GitHub credentials
 - [ ] Set up Slack webhook for alerts
@@ -307,7 +290,7 @@ curl -X POST http://localhost:5000/api/v1/detect \
 - [ ] Document team response procedures
 - [ ] Schedule regular model retraining
 
-## File Structure
+## 📚 File Structure
 
 ```
 cicd-anomaly-detection/
@@ -330,7 +313,7 @@ cicd-anomaly-detection/
 └── README.md            # Full docs
 ```
 
-## Getting Help
+## 🆘 Getting Help
 
 1. Check logs: `docker-compose logs -f`
 2. Test health: `curl http://localhost:5000/health`
@@ -338,7 +321,7 @@ cicd-anomaly-detection/
 4. Check API.md for endpoint reference
 5. Run demo.py to verify setup
 
-## Next Steps
+## 🚀 Next Steps
 
 1. **Configure production credentials** in `.env`
 2. **Start Docker stack**: `docker-compose up -d`
@@ -351,7 +334,6 @@ cicd-anomaly-detection/
 ---
 
 **Need More Help?**
-
 - 📖 Full Documentation: README.md
 - 🔌 API Reference: API.md
 - 🎯 Architecture: OVERVIEW.md
