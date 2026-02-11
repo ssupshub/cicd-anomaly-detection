@@ -10,8 +10,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ml.anomaly_detector import AnomalyDetector
 from ml.data_storage import DataStorage
+from ml.ensemble_detector import EnsembleDetector
+from ml.lstm_predictor import LSTMPredictor
+from ml.root_cause_analyzer import RootCauseAnalyzer
 from collectors.jenkins_collector import JenkinsCollector
 from collectors.github_collector import GitHubActionsCollector
+from collectors.gitlab_collector import GitLabCollector
 from api.alerting import AlertManager
 from dotenv import load_dotenv
 import logging
@@ -25,7 +29,24 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Initialize components
-detector = AnomalyDetector()
+# Create ensemble detector with multiple models
+ensemble = EnsembleDetector()
+
+# Add base anomaly detector
+base_detector = AnomalyDetector()
+ensemble.add_detector('isolation_forest', base_detector, weight=1.2)
+
+# Add LSTM predictor
+lstm_predictor = LSTMPredictor(sequence_length=10)
+ensemble.add_detector('lstm', lstm_predictor, weight=1.0)
+
+# Keep single detector for backward compatibility
+detector = base_detector
+
+# Root cause analyzer
+rca = RootCauseAnalyzer()
+
+# Storage and alerts
 storage = DataStorage('./data')
 alert_manager = AlertManager({
     'slack_webhook_url': os.getenv('SLACK_WEBHOOK_URL', ''),
@@ -34,12 +55,18 @@ alert_manager = AlertManager({
     'alert_email': os.getenv('ALERT_EMAIL', ''),
 })
 
-# Try to load existing model
+# Try to load existing models
 try:
     detector.load_model('./models')
-    logger.info("Loaded existing model")
+    logger.info("Loaded existing isolation forest model")
 except Exception as e:
     logger.info("No existing model found, will need to train")
+
+try:
+    ensemble.load_ensemble('./models')
+    logger.info("Loaded existing ensemble")
+except Exception as e:
+    logger.info("No existing ensemble found")
 
 
 @app.route('/health', methods=['GET'])
@@ -79,8 +106,19 @@ def collect_metrics():
             collector = GitHubActionsCollector(github_token, github_repo)
             metrics = collector.collect_all_metrics(runs_per_workflow=count)
         
+        elif source == 'gitlab':
+            gitlab_url = os.getenv('GITLAB_URL', 'https://gitlab.com')
+            gitlab_token = os.getenv('GITLAB_TOKEN', '')
+            gitlab_project = os.getenv('GITLAB_PROJECT', '')
+            
+            if not gitlab_token or not gitlab_project:
+                return jsonify({'error': 'GitLab credentials not configured'}), 400
+            
+            collector = GitLabCollector(gitlab_url, gitlab_token, gitlab_project)
+            metrics = collector.collect_all_metrics(pipeline_count=count)
+        
         else:
-            return jsonify({'error': 'Invalid source. Use "jenkins" or "github"'}), 400
+            return jsonify({'error': 'Invalid source. Use "jenkins", "github", or "gitlab"'}), 400
         
         # Save metrics
         filepath = storage.save_metrics(metrics, source)
@@ -99,10 +137,11 @@ def collect_metrics():
 
 @app.route('/api/v1/train', methods=['POST'])
 def train_model():
-    """Train the anomaly detection model"""
+    """Train the anomaly detection model (ensemble + individual models)"""
     try:
         # Load training data
         days = request.json.get('days', 30) if request.json else 30
+        use_ensemble = request.json.get('use_ensemble', True) if request.json else True
         metrics = storage.load_metrics(days=days)
         
         if len(metrics) < 100:
@@ -111,18 +150,36 @@ def train_model():
                 'suggestion': 'Collect more metrics first'
             }), 400
         
-        # Train model
-        contamination = request.json.get('contamination', 0.1) if request.json else 0.1
-        detector.contamination = contamination
+        results = {}
         
-        stats = detector.train(metrics)
-        
-        # Save model
-        detector.save_model('./models')
+        if use_ensemble:
+            # Train ensemble (trains all detectors)
+            contamination = request.json.get('contamination', 0.1) if request.json else 0.1
+            
+            # Update contamination for base detector
+            base_detector = ensemble.detectors.get('isolation_forest')
+            if base_detector:
+                base_detector.contamination = contamination
+            
+            ensemble_stats = ensemble.train(metrics)
+            results['ensemble'] = ensemble_stats
+            
+            # Save ensemble
+            ensemble.save_ensemble('./models')
+        else:
+            # Train single detector (backward compatibility)
+            contamination = request.json.get('contamination', 0.1) if request.json else 0.1
+            detector.contamination = contamination
+            
+            stats = detector.train(metrics)
+            results['single_model'] = stats
+            
+            # Save model
+            detector.save_model('./models')
         
         return jsonify({
             'success': True,
-            'training_stats': stats
+            'training_stats': results
         })
         
     except Exception as e:
@@ -307,6 +364,142 @@ def run_full_pipeline():
         
     except Exception as e:
         logger.error(f"Error running pipeline: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/ensemble-detect', methods=['POST'])
+def ensemble_detect():
+    """Detect anomalies using ensemble method"""
+    try:
+        if not ensemble.is_trained:
+            return jsonify({
+                'error': 'Ensemble not trained. Train the model first.',
+                'endpoint': '/api/v1/train'
+            }), 400
+        
+        metrics = request.json.get('metrics', [])
+        
+        if not metrics:
+            # Use recent metrics
+            metrics = storage.load_metrics(days=1)
+        
+        if not metrics:
+            return jsonify({'error': 'No metrics provided or available'}), 400
+        
+        # Ensemble detection
+        anomalies, voting_stats = ensemble.predict(metrics)
+        
+        # Save anomalies
+        if anomalies:
+            storage.save_anomalies(anomalies, 'ensemble')
+            
+            # Send alerts for high confidence anomalies
+            send_alerts = request.json.get('send_alerts', True) if request.json else True
+            if send_alerts:
+                for anomaly in anomalies[:5]:  # Top 5
+                    if anomaly.get('confidence', 0) > 0.7:
+                        alert_manager.send_alert(anomaly, channels=['slack'])
+        
+        return jsonify({
+            'success': True,
+            'total_samples': len(metrics),
+            'anomalies_detected': len(anomalies),
+            'voting_stats': voting_stats,
+            'anomalies': anomalies[:10]  # Return top 10
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in ensemble detection: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/predict', methods=['POST'])
+def predict_next_build():
+    """Predict metrics for next build using LSTM"""
+    try:
+        job_name = request.json.get('job_name') if request.json else None
+        sequence_length = request.json.get('sequence_length', 20) if request.json else 20
+        
+        # Get recent builds
+        all_metrics = storage.load_metrics(days=7)
+        
+        if not all_metrics:
+            return jsonify({'error': 'No historical data available'}), 400
+        
+        # Filter by job if specified
+        if job_name:
+            recent_builds = [m for m in all_metrics if m.get('job_name') == job_name or m.get('workflow_name') == job_name]
+        else:
+            recent_builds = all_metrics
+        
+        if len(recent_builds) < sequence_length:
+            return jsonify({
+                'error': f'Need at least {sequence_length} builds, found {len(recent_builds)}'
+            }), 400
+        
+        # Get LSTM predictor from ensemble
+        lstm = ensemble.detectors.get('lstm')
+        if not lstm or not lstm.is_trained:
+            return jsonify({
+                'error': 'LSTM predictor not trained',
+                'suggestion': 'Train the ensemble first'
+            }), 400
+        
+        # Make prediction
+        predictions = lstm.predict_next(recent_builds[-sequence_length:], job_name)
+        
+        return jsonify({
+            'success': True,
+            'job_name': job_name or 'all',
+            'predictions': predictions,
+            'based_on_builds': len(recent_builds)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in prediction: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/analyze-cause', methods=['POST'])
+def analyze_root_cause():
+    """Analyze root cause of an anomaly"""
+    try:
+        anomaly = request.json.get('anomaly')
+        context = request.json.get('context', {})
+        
+        if not anomaly:
+            return jsonify({'error': 'Anomaly data required'}), 400
+        
+        # Get historical data for comparison
+        historical_data = storage.load_metrics(days=30)
+        
+        if not historical_data:
+            return jsonify({'error': 'No historical data for analysis'}), 400
+        
+        # Perform root cause analysis
+        analysis = rca.analyze(anomaly, historical_data, context)
+        
+        return jsonify({
+            'success': True,
+            'analysis': analysis
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in root cause analysis: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/insights', methods=['GET'])
+def get_insights():
+    """Get insights summary from root cause analyzer"""
+    try:
+        insights = rca.get_insights_summary()
+        return jsonify({
+            'success': True,
+            'insights': insights
+        })
+    except Exception as e:
+        logger.error(f"Error getting insights: {e}")
         return jsonify({'error': str(e)}), 500
 
 
