@@ -2,7 +2,7 @@
 
 AI-powered anomaly detection system for CI/CD pipelines using Machine Learning. Automatically learns normal pipeline behavior and alerts when unusual patterns are detected.
 
-## 🎯 Features
+## Features
 
 - **Automated Data Collection**: Collects metrics from Jenkins and GitHub Actions
 - **ML-Powered Detection**: Uses Isolation Forest and statistical methods to detect anomalies
@@ -11,7 +11,7 @@ AI-powered anomaly detection system for CI/CD pipelines using Machine Learning. 
 - **REST API**: Full API for integration with existing tools
 - **Automated Scheduling**: Periodic collection, training, and detection
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────┐     ┌─────────────────┐
@@ -46,14 +46,14 @@ AI-powered anomaly detection system for CI/CD pipelines using Machine Learning. 
                                          └──────────┘
 ```
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Python 3.8+
 - Docker & Docker Compose (for containerized deployment)
 - Jenkins (with API access) or GitHub repository
 - Prometheus & Grafana (included in docker-compose)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone and Setup
 
@@ -80,6 +80,7 @@ nano .env
 ```
 
 Required configurations:
+
 ```env
 # Jenkins
 JENKINS_URL=http://your-jenkins-url:8080
@@ -122,14 +123,16 @@ python scheduler.py
 python collectors/prometheus_exporter.py
 ```
 
-## 📊 API Endpoints
+## API Endpoints
 
 ### Health Check
+
 ```bash
 curl http://localhost:5000/health
 ```
 
 ### Collect Metrics
+
 ```bash
 curl -X POST http://localhost:5000/api/v1/collect \
   -H "Content-Type: application/json" \
@@ -137,6 +140,7 @@ curl -X POST http://localhost:5000/api/v1/collect \
 ```
 
 ### Train Model
+
 ```bash
 curl -X POST http://localhost:5000/api/v1/train \
   -H "Content-Type: application/json" \
@@ -144,6 +148,7 @@ curl -X POST http://localhost:5000/api/v1/train \
 ```
 
 ### Detect Anomalies
+
 ```bash
 curl -X POST http://localhost:5000/api/v1/detect \
   -H "Content-Type: application/json" \
@@ -151,23 +156,26 @@ curl -X POST http://localhost:5000/api/v1/detect \
 ```
 
 ### Get Recent Anomalies
+
 ```bash
 curl http://localhost:5000/api/v1/anomalies?hours=24
 ```
 
 ### Get Status
+
 ```bash
 curl http://localhost:5000/api/v1/status
 ```
 
 ### Run Full Pipeline
+
 ```bash
 curl -X POST http://localhost:5000/api/v1/pipeline \
   -H "Content-Type: application/json" \
   -d '{"source": "jenkins"}'
 ```
 
-## 🎨 Grafana Dashboard
+## Grafana Dashboard
 
 1. Access Grafana at `http://localhost:3000`
 2. Login with `admin/admin`
@@ -175,6 +183,7 @@ curl -X POST http://localhost:5000/api/v1/pipeline \
 4. Import the dashboard from `dashboards/grafana-dashboard.json`
 
 Dashboard includes:
+
 - Build rate by job
 - Anomaly detection rate
 - Build duration percentiles
@@ -182,7 +191,7 @@ Dashboard includes:
 - Anomaly scores
 - Model accuracy and status
 
-## 🔔 Alert Configuration
+## Alert Configuration
 
 ### Slack Alerts
 
@@ -192,6 +201,7 @@ Dashboard includes:
    - Copy webhook URL
 
 2. Add to `.env`:
+
 ```env
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 ```
@@ -199,6 +209,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 ### Email Alerts
 
 Add to `.env`:
+
 ```env
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
@@ -207,9 +218,10 @@ SMTP_PASSWORD=your-app-password
 ALERT_EMAIL=alerts@yourcompany.com
 ```
 
-## 🧪 Testing
+## Testing
 
 ### Run Unit Tests
+
 ```bash
 pytest tests/
 ```
@@ -230,7 +242,7 @@ python ml/anomaly_detector.py
 python collectors/prometheus_exporter.py
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 cicd-anomaly-detection/
@@ -262,7 +274,7 @@ cicd-anomaly-detection/
 └── README.md                   # This file
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Model Parameters
 
@@ -270,7 +282,7 @@ Edit `config/config.yaml`:
 
 ```yaml
 # Anomaly detection sensitivity
-ANOMALY_THRESHOLD: 2.5  # Standard deviations
+ANOMALY_THRESHOLD: 2.5 # Standard deviations
 
 # Model contamination (expected anomaly rate)
 MIN_TRAINING_SAMPLES: 100
@@ -286,18 +298,21 @@ FEATURES:
 ### Scheduling
 
 Default schedule (in `scheduler.py`):
+
 - Metrics collection: Every 15 minutes
 - Model training: Daily at 2 AM
 - Data cleanup: Weekly on Sunday at 3 AM
 
-## 📈 How It Works
+## How It Works
 
 ### 1. Data Collection
+
 - Connects to Jenkins/GitHub APIs
 - Extracts build metrics (duration, failures, queue time, etc.)
 - Stores in local data directory
 
 ### 2. Feature Engineering
+
 - Normalizes metrics
 - Calculates derived features (duration per test, failure rate)
 - Scales data for ML algorithms
@@ -305,23 +320,27 @@ Default schedule (in `scheduler.py`):
 ### 3. Anomaly Detection
 
 **Isolation Forest (ML-based)**:
+
 - Trains on historical build data
 - Isolates anomalies using random partitioning
 - Returns anomaly scores for new builds
 
 **Statistical Method**:
+
 - Calculates z-scores for each metric
 - Flags values beyond threshold (default: 3σ)
 - Identifies specific anomalous features
 
 ### 4. Alerting
+
 - High-severity anomalies trigger immediate alerts
 - Sends to configured channels (Slack, email)
 - Includes context and recommendations
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Model not training
+
 ```bash
 # Check if enough data collected
 curl http://localhost:5000/api/v1/status
@@ -333,6 +352,7 @@ curl -X POST http://localhost:5000/api/v1/collect \
 ```
 
 ### Connection errors
+
 ```bash
 # Test Jenkins connectivity
 curl -u username:token http://jenkins-url:8080/api/json
@@ -342,11 +362,12 @@ docker-compose logs anomaly-api
 ```
 
 ### No anomalies detected
+
 - Model might need retraining with recent data
 - Adjust `ANOMALY_THRESHOLD` in config
 - Check if metrics are being collected
 
-## 🔐 Security Notes
+## Security Notes
 
 - Store credentials in `.env` file (never commit to git)
 - Use API tokens, not passwords
@@ -354,7 +375,7 @@ docker-compose logs anomaly-api
 - Use HTTPS for webhook URLs
 - Rotate tokens regularly
 
-## 📝 Best Practices
+## Best Practices
 
 1. **Training Data**: Collect at least 200 builds before first training
 2. **Retraining**: Retrain model weekly or after major pipeline changes
@@ -362,25 +383,26 @@ docker-compose logs anomaly-api
 4. **Monitoring**: Check Grafana dashboard daily
 5. **Alerts**: Configure multiple channels for critical anomalies
 
-## 🤝 Contributing
+## Contributing
 
 Contributions welcome! Please:
+
 1. Fork the repository
 2. Create a feature branch
 3. Add tests for new features
 4. Submit a pull request
 
-## 📄 License
+## License
 
 MIT License - see LICENSE file
 
-## 🆘 Support
+## Support
 
 - GitHub Issues: Report bugs and request features
 - Documentation: Check code comments and docstrings
 - Logs: Review `logs/` directory for debugging
 
-## 🎓 Learn More
+## Learn More
 
 - [Isolation Forest Algorithm](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html)
 - [Prometheus Documentation](https://prometheus.io/docs/)
@@ -388,7 +410,7 @@ MIT License - see LICENSE file
 - [Jenkins API](https://www.jenkins.io/doc/book/using/remote-access-api/)
 - [GitHub Actions API](https://docs.github.com/en/rest/actions)
 
-## 🎯 Roadmap
+## Roadmap
 
 - [ ] Support for more CI/CD platforms (GitLab CI, CircleCI)
 - [ ] Deep learning models (LSTM for time series)
