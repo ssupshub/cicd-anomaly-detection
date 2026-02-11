@@ -1,10 +1,10 @@
-# 🚀 Quick Start Guide - CI/CD Anomaly Detection System
+# Quick Start Guide - CI/CD Anomaly Detection System
 
-## ⚡ 5-Minute Setup
+## 5-Minute Setup
 
 ### Prerequisites
 - Python 3.8+
-- Docker & Docker Compose (optional, recommended)
+- Docker and Docker Compose (optional, recommended)
 - Jenkins or GitHub repository (for production use)
 
 ### Installation
@@ -23,9 +23,9 @@ nano .env  # Add your Jenkins/GitHub credentials
 python demo.py
 ```
 
-## 🎯 Three Ways to Run
+## Three Deployment Options
 
-### Option 1: Docker Compose (Easiest) ⭐
+### Option 1: Docker Compose (Recommended)
 
 ```bash
 # Start everything (API, Scheduler, Prometheus, Grafana)
@@ -74,7 +74,7 @@ curl -X POST http://localhost:5000/api/v1/train
 curl -X POST http://localhost:5000/api/v1/detect
 ```
 
-## 📊 First-Time Workflow
+##  First-Time Workflow
 
 ```bash
 # 1. Collect historical data (need 100+ builds)
@@ -95,7 +95,7 @@ curl http://localhost:5000/api/v1/status
 curl http://localhost:5000/api/v1/anomalies?hours=24
 ```
 
-## 🔔 Setting Up Alerts
+##  Setting Up Alerts
 
 ### Slack Integration
 
@@ -121,7 +121,7 @@ SMTP_PASSWORD=your-app-password
 ALERT_EMAIL=team@company.com
 ```
 
-## 📈 Using Grafana
+##  Using Grafana
 
 1. Access: http://localhost:3000
 2. Login: admin/admin
@@ -196,7 +196,7 @@ python ml/data_storage.py
 pytest tests/ -v
 ```
 
-## 🐛 Common Issues
+##  Common Issues
 
 ### "Model not trained"
 ```bash
@@ -225,7 +225,7 @@ curl -X POST http://localhost:5000/api/v1/detect \
   -d '{"threshold": 2.0}'
 ```
 
-## 📊 Understanding Results
+##  Understanding Results
 
 ### Anomaly Response Example
 ```json
@@ -253,7 +253,7 @@ curl -X POST http://localhost:5000/api/v1/detect \
 - Z-score of 4.5 = very unusual (>99.99% probability of anomaly)
 - Build failed, worth investigating
 
-## 🔧 Configuration Tips
+##  Configuration Tips
 
 ### Adjust Sensitivity
 
@@ -277,7 +277,7 @@ curl -X POST http://localhost:5000/api/v1/detect \
 - Set minimum severity threshold
 - Use digest mode (hourly summary)
 
-## 🎯 Production Checklist
+##  Production Checklist
 
 - [ ] Configure real Jenkins/GitHub credentials
 - [ ] Set up Slack webhook for alerts
@@ -290,7 +290,7 @@ curl -X POST http://localhost:5000/api/v1/detect \
 - [ ] Document team response procedures
 - [ ] Schedule regular model retraining
 
-## 📚 File Structure
+##  File Structure
 
 ```
 cicd-anomaly-detection/
@@ -313,7 +313,7 @@ cicd-anomaly-detection/
 └── README.md            # Full docs
 ```
 
-## 🆘 Getting Help
+##  Getting Help
 
 1. Check logs: `docker-compose logs -f`
 2. Test health: `curl http://localhost:5000/health`
@@ -321,7 +321,7 @@ cicd-anomaly-detection/
 4. Check API.md for endpoint reference
 5. Run demo.py to verify setup
 
-## 🚀 Next Steps
+##  Next Steps
 
 1. **Configure production credentials** in `.env`
 2. **Start Docker stack**: `docker-compose up -d`
@@ -333,10 +333,13 @@ cicd-anomaly-detection/
 
 ---
 
-**Need More Help?**
-- 📖 Full Documentation: README.md
-- 🔌 API Reference: API.md
-- 🎯 Architecture: OVERVIEW.md
-- 🧪 Run Tests: `pytest tests/`
+## Additional Resources
 
-**Happy Monitoring! 🎉**
+- Full Documentation: README.md
+- API Reference: API.md
+- Architecture: OVERVIEW.md
+- Run Tests: `pytest tests/`
+
+---
+
+**CI/CD Anomaly Detection System - Production Ready**
