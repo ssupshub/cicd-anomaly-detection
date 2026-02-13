@@ -13,6 +13,7 @@ from ml.data_storage import DataStorage
 from ml.ensemble_detector import EnsembleDetector
 from ml.lstm_predictor import LSTMPredictor
 from ml.root_cause_analyzer import RootCauseAnalyzer
+from ml.flaky_test_detector import FlakyTestDetector
 from collectors.jenkins_collector import JenkinsCollector
 from collectors.github_collector import GitHubActionsCollector
 from collectors.gitlab_collector import GitLabCollector
@@ -45,6 +46,13 @@ detector = base_detector
 
 # Root cause analyzer
 rca = RootCauseAnalyzer()
+
+# Flaky test detector
+flaky_detector = FlakyTestDetector(
+    flaky_threshold=0.1,
+    min_executions=10,
+    lookback_days=30
+)
 
 # Storage and alerts
 storage = DataStorage('./data')
@@ -500,6 +508,85 @@ def get_insights():
         })
     except Exception as e:
         logger.error(f"Error getting insights: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/flaky-tests/analyze', methods=['POST'])
+def analyze_flaky_tests():
+    """Analyze test history to detect flaky tests"""
+    try:
+        # Get test results from recent builds
+        days = request.json.get('days', 30) if request.json else 30
+        metrics = storage.load_metrics(days=days)
+        
+        if not metrics:
+            return jsonify({'error': 'No metrics available for analysis'}), 400
+        
+        # Feed test results to detector
+        for build in metrics:
+            if 'test_results' in build or 'test_count' in build:
+                # If test_results not explicitly provided, create from metrics
+                if 'test_results' not in build and build.get('test_count', 0) > 0:
+                    # Infer test results from failure data
+                    build['test_results'] = [{
+                        'name': f"test_{i}",
+                        'status': 'failed' if i < build.get('failure_count', 0) else 'passed',
+                        'duration': 1
+                    } for i in range(build.get('test_count', 0))]
+                
+                flaky_detector.record_test_results(build)
+        
+        # Analyze for flaky tests
+        flaky_tests = flaky_detector.analyze_flaky_tests()
+        summary = flaky_detector.get_summary_report()
+        
+        # Save report
+        flaky_detector.save_report('./data/reports/flaky_tests.json')
+        
+        return jsonify({
+            'success': True,
+            'flaky_tests_detected': len(flaky_tests),
+            'summary': summary,
+            'flaky_tests': flaky_tests[:20]  # Return top 20
+        })
+        
+    except Exception as e:
+        logger.error(f"Error analyzing flaky tests: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/flaky-tests', methods=['GET'])
+def get_flaky_tests():
+    """Get list of detected flaky tests"""
+    try:
+        summary = flaky_detector.get_summary_report()
+        
+        return jsonify({
+            'success': True,
+            'summary': summary
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting flaky tests: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/flaky-tests/<test_name>', methods=['GET'])
+def get_flaky_test_detail(test_name):
+    """Get detailed report for a specific flaky test"""
+    try:
+        report = flaky_detector.get_flaky_test_report(test_name)
+        
+        if not report:
+            return jsonify({'error': f'Test {test_name} not found or not flaky'}), 404
+        
+        return jsonify({
+            'success': True,
+            'test': report
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting flaky test detail: {e}")
         return jsonify({'error': str(e)}), 500
 
 
