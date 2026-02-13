@@ -4,10 +4,12 @@ AI-powered anomaly detection system for CI/CD pipelines using Machine Learning. 
 
 ## Features
 
-- **Automated Data Collection**: Collects metrics from Jenkins and GitHub Actions
-- **ML-Powered Detection**: Uses Isolation Forest and statistical methods to detect anomalies
+- **Automated Data Collection**: Collects metrics from Jenkins, GitHub Actions, and GitLab CI
+- **ML-Powered Detection**: Uses Ensemble Detection (Isolation Forest + LSTM + Statistical methods)
+- **Root Cause Analysis**: Explains WHY anomalies occur with actionable recommendations
+- **Flaky Test Detection**: Automatically identifies unreliable tests that fail intermittently
 - **Real-time Monitoring**: Prometheus metrics with Grafana dashboards
-- **Smart Alerting**: Slack, email, and webhook notifications for detected anomalies
+- **Smart Alerting**: Slack, email, and webhook notifications with root cause analysis
 - **REST API**: Full API for integration with existing tools
 - **Automated Scheduling**: Periodic collection, training, and detection
 

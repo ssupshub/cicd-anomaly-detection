@@ -29,14 +29,14 @@ Check if the API is running.
 
 ### Collect Metrics
 
-Collect metrics from Jenkins or GitHub Actions.
+Collect metrics from Jenkins, GitHub Actions, or GitLab CI.
 
 **Endpoint:** `POST /api/v1/collect`
 
 **Request Body:**
 ```json
 {
-  "source": "jenkins",  // or "github"
+  "source": "jenkins",  // or "github" or "gitlab"
   "count": 100          // number of builds to collect
 }
 ```
@@ -215,6 +215,119 @@ Generate a summary report of metrics and anomalies.
 **Example:**
 ```bash
 curl http://localhost:5000/api/v1/report
+```
+
+---
+
+### Analyze Flaky Tests
+
+Analyze test execution history to detect flaky (intermittently failing) tests.
+
+**Endpoint:** `POST /api/v1/flaky-tests/analyze`
+
+**Request Body:**
+```json
+{
+  "days": 30  // days of history to analyze
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "flaky_tests_detected": 5,
+  "summary": {
+    "total_flaky_tests": 5,
+    "by_severity": {
+      "critical": 1,
+      "high": 2,
+      "medium": 1,
+      "low": 1
+    },
+    "estimated_wasted_time_hours": 12.5
+  },
+  "flaky_tests": [
+    {
+      "test_name": "test_payment_processing",
+      "flakiness_score": 87.5,
+      "severity": "high",
+      "failure_rate": 0.35,
+      "total_runs": 50,
+      "failures": 18
+    }
+  ]
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:5000/api/v1/flaky-tests/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"days": 30}'
+```
+
+---
+
+### Get Flaky Tests
+
+Get list of detected flaky tests.
+
+**Endpoint:** `GET /api/v1/flaky-tests`
+
+**Response:**
+```json
+{
+  "success": true,
+  "summary": {
+    "total_flaky_tests": 5,
+    "by_severity": {...},
+    "estimated_wasted_time_hours": 12.5
+  }
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:5000/api/v1/flaky-tests
+```
+
+---
+
+### Get Flaky Test Details
+
+Get detailed report for a specific flaky test including recommendations.
+
+**Endpoint:** `GET /api/v1/flaky-tests/<test_name>`
+
+**Response:**
+```json
+{
+  "success": true,
+  "test": {
+    "test_name": "test_user_login",
+    "flakiness_score": 87.5,
+    "severity": "high",
+    "failure_rate": 0.35,
+    "consecutive_failures": 2,
+    "flip_flops": 12,
+    "recommendations": [
+      {
+        "issue": "High variability in results",
+        "likely_cause": "Race condition or timing dependency",
+        "action": "Add explicit waits or synchronization",
+        "priority": "high",
+        "effort": "medium"
+      }
+    ],
+    "recent_history": [...]
+  }
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:5000/api/v1/flaky-tests/test_user_login
 ```
 
 ---
