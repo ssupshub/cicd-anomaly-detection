@@ -19,6 +19,7 @@ from collectors.github_collector import GitHubActionsCollector
 from collectors.gitlab_collector import GitLabCollector
 from collectors.prometheus_exporter import PrometheusExporter
 from api.alerting import AlertManager
+from api.smart_alerting import create_smart_alert_manager
 from dotenv import load_dotenv
 import logging
 from datetime import datetime
@@ -55,11 +56,19 @@ class AnomalyDetectionScheduler:
         # Other components
         self.storage = DataStorage('./data')
         self.prometheus = PrometheusExporter(port=8000)
-        self.alert_manager = AlertManager({
+        # Base alert manager (unchanged)
+        _base_alert_manager = AlertManager({
             'slack_webhook_url': os.getenv('SLACK_WEBHOOK_URL', ''),
             'smtp_user': os.getenv('SMTP_USER', ''),
             'smtp_password': os.getenv('SMTP_PASSWORD', ''),
             'alert_email': os.getenv('ALERT_EMAIL', ''),
+        })
+
+        # Smart alert manager - wraps the base with batching/dedup/routing
+        self.alert_manager = create_smart_alert_manager(_base_alert_manager, {
+            'batch_window_seconds': int(os.getenv('ALERT_BATCH_WINDOW', 60)),
+            'dedup_window_seconds': int(os.getenv('ALERT_DEDUP_WINDOW', 300)),
+            'max_alerts_per_hour': int(os.getenv('ALERT_MAX_PER_HOUR', 20)),
         })
         
         # Configuration
@@ -349,6 +358,9 @@ class AnomalyDetectionScheduler:
         # Detect anomalies if ensemble is trained
         if self.ensemble.is_trained and total_metrics > 0:
             self.detect_anomalies()
+
+        # Flush any pending batched alerts at end of each cycle
+        self.alert_manager.flush_now()
     
     def start(self):
         """Start the scheduler"""

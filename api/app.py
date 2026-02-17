@@ -18,6 +18,7 @@ from collectors.jenkins_collector import JenkinsCollector
 from collectors.github_collector import GitHubActionsCollector
 from collectors.gitlab_collector import GitLabCollector
 from api.alerting import AlertManager
+from api.smart_alerting import SmartAlertManager, AlertRule, MaintenanceWindow, create_smart_alert_manager
 from dotenv import load_dotenv
 import logging
 from datetime import datetime
@@ -56,11 +57,20 @@ flaky_detector = FlakyTestDetector(
 
 # Storage and alerts
 storage = DataStorage('./data')
-alert_manager = AlertManager({
+
+# Base alert manager (unchanged - smart layer wraps it)
+_base_alert_manager = AlertManager({
     'slack_webhook_url': os.getenv('SLACK_WEBHOOK_URL', ''),
     'smtp_user': os.getenv('SMTP_USER', ''),
     'smtp_password': os.getenv('SMTP_PASSWORD', ''),
     'alert_email': os.getenv('ALERT_EMAIL', ''),
+})
+
+# Smart alert manager wraps the base - drop-in compatible
+alert_manager = create_smart_alert_manager(_base_alert_manager, {
+    'batch_window_seconds': int(os.getenv('ALERT_BATCH_WINDOW', 60)),
+    'dedup_window_seconds': int(os.getenv('ALERT_DEDUP_WINDOW', 300)),
+    'max_alerts_per_hour': int(os.getenv('ALERT_MAX_PER_HOUR', 20)),
 })
 
 # Try to load existing models
@@ -587,6 +597,106 @@ def get_flaky_test_detail(test_name):
         
     except Exception as e:
         logger.error(f"Error getting flaky test detail: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/alerts/rules', methods=['GET'])
+def get_alert_rules():
+    """Get all configured alert routing rules"""
+    try:
+        return jsonify({'success': True, 'rules': alert_manager.list_rules()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/alerts/rules', methods=['POST'])
+def add_alert_rule():
+    """Add an alert routing rule"""
+    try:
+        data = request.json or {}
+        rule = AlertRule(
+            name=data['name'],
+            job_pattern=data.get('job_pattern'),
+            min_severity=data.get('min_severity', 'medium'),
+            channels=data.get('channels', ['slack']),
+            team_name=data.get('team_name'),
+            slack_webhook=data.get('slack_webhook')
+        )
+        alert_manager.add_rule(rule)
+        return jsonify({'success': True, 'rule': data})
+    except KeyError as e:
+        return jsonify({'error': f'Missing required field: {e}'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/alerts/rules/<name>', methods=['DELETE'])
+def remove_alert_rule(name):
+    """Remove an alert routing rule by name"""
+    try:
+        alert_manager.remove_rule(name)
+        return jsonify({'success': True, 'removed': name})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/alerts/maintenance', methods=['GET'])
+def get_maintenance_windows():
+    """Get active maintenance windows"""
+    try:
+        return jsonify({
+            'success': True,
+            'active_windows': alert_manager.list_active_windows()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/alerts/maintenance', methods=['POST'])
+def add_maintenance_window():
+    """Add a maintenance window to suppress alerts"""
+    try:
+        data = request.json or {}
+        window = MaintenanceWindow(
+            name=data['name'],
+            start=datetime.fromisoformat(data['start']),
+            end=datetime.fromisoformat(data['end']),
+            affected_jobs=data.get('affected_jobs')  # None = all jobs
+        )
+        alert_manager.add_maintenance_window(window)
+        return jsonify({'success': True, 'window': data})
+    except KeyError as e:
+        return jsonify({'error': f'Missing required field: {e}'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/alerts/maintenance/<name>', methods=['DELETE'])
+def remove_maintenance_window(name):
+    """Remove a maintenance window"""
+    try:
+        alert_manager.remove_maintenance_window(name)
+        return jsonify({'success': True, 'removed': name})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/alerts/stats', methods=['GET'])
+def get_alert_stats():
+    """Get smart alerting statistics"""
+    try:
+        return jsonify({'success': True, 'stats': alert_manager.get_stats()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/alerts/flush', methods=['POST'])
+def flush_alert_batch():
+    """Immediately flush any pending batched alerts"""
+    try:
+        ok = alert_manager.flush_now()
+        return jsonify({'success': ok})
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
