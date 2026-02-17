@@ -1,26 +1,29 @@
-# API Documentation
+# API Reference
 
 ## Base URL
+
 ```
 http://localhost:5000
 ```
 
 ## Authentication
-Currently no authentication required. For production, implement API key authentication.
+
+No authentication is enforced by default. For production deployments, implement API key or OAuth2 authentication in front of the service.
+
+---
 
 ## Endpoints
 
 ### Health Check
 
-Check if the API is running.
+**GET /health**
 
-**Endpoint:** `GET /health`
+Returns system health and model status.
 
-**Response:**
 ```json
 {
   "status": "healthy",
-  "timestamp": "2024-02-08T12:00:00",
+  "timestamp": "2026-02-17T12:00:00",
   "model_trained": true
 }
 ```
@@ -29,223 +32,258 @@ Check if the API is running.
 
 ### Collect Metrics
 
-Collect metrics from Jenkins, GitHub Actions, or GitLab CI.
+**POST /api/v1/collect**
 
-**Endpoint:** `POST /api/v1/collect`
+Collect build metrics from a CI/CD source.
 
-**Request Body:**
+Request:
 ```json
 {
-  "source": "jenkins",  // or "github" or "gitlab"
-  "count": 100          // number of builds to collect
+  "source": "jenkins",
+  "count": 100
 }
 ```
 
-**Response:**
+Sources: `jenkins`, `github`, `gitlab`
+
+Response:
 ```json
 {
   "success": true,
   "metrics_collected": 150,
   "source": "jenkins",
-  "filepath": "./data/metrics/jenkins_20240208_120000.json"
+  "filepath": "./data/metrics/jenkins_20260217_120000.json"
 }
-```
-
-**Example:**
-```bash
-curl -X POST http://localhost:5000/api/v1/collect \
-  -H "Content-Type: application/json" \
-  -d '{"source": "jenkins", "count": 100}'
 ```
 
 ---
 
 ### Train Model
 
-Train the anomaly detection model on historical data.
+**POST /api/v1/train**
 
-**Endpoint:** `POST /api/v1/train`
+Train the ensemble anomaly detection model on stored historical data.
 
-**Request Body:**
+Request:
 ```json
 {
-  "days": 30,              // days of data to use
-  "contamination": 0.1     // expected anomaly rate (0.0 - 0.5)
+  "days": 30,
+  "contamination": 0.1,
+  "use_ensemble": true
 }
 ```
 
-**Response:**
+Response:
 ```json
 {
   "success": true,
   "training_stats": {
-    "samples": 500,
-    "features": 8,
-    "anomalies_detected": 50,
-    "anomaly_rate": 0.1,
-    "trained_at": "2024-02-08T12:00:00"
+    "ensemble_size": 2,
+    "successful": 2,
+    "failed": 0
   }
 }
 ```
 
-**Example:**
-```bash
-curl -X POST http://localhost:5000/api/v1/train \
-  -H "Content-Type: application/json" \
-  -d '{"days": 30, "contamination": 0.1}'
+---
+
+### Detect Anomalies (Single Model)
+
+**POST /api/v1/detect**
+
+Detect anomalies using the base Isolation Forest + statistical method. Preserved for backward compatibility.
+
+Request:
+```json
+{
+  "threshold": 3.0,
+  "send_alerts": true
+}
 ```
 
 ---
 
-### Detect Anomalies
+### Detect Anomalies (Ensemble)
 
-Detect anomalies in metrics.
+**POST /api/v1/ensemble-detect**
 
-**Endpoint:** `POST /api/v1/detect`
+Detect anomalies using the full ensemble. Multiple models must agree before an anomaly is reported, significantly reducing false positives.
 
-**Request Body:**
+Request:
 ```json
 {
-  "metrics": [],           // optional: provide specific metrics
-  "threshold": 3.0,        // z-score threshold for statistical detection
-  "send_alerts": true      // whether to send alerts
+  "send_alerts": true
 }
 ```
 
-**Response:**
+Response:
 ```json
 {
   "success": true,
   "total_samples": 100,
-  "ml_anomalies": 5,
-  "statistical_anomalies": 3,
+  "anomalies_detected": 4,
+  "voting_stats": {
+    "total_individual_detections": 12,
+    "ensemble_detections": 4,
+    "reduction_rate": 0.67
+  },
   "anomalies": [
     {
-      "index": 0,
-      "max_z_score": 4.5,
-      "anomaly_features": [
-        {
-          "feature": "duration",
-          "value": 800.0,
-          "expected": 300.0,
-          "z_score": 4.5
-        }
-      ],
-      "data": {
-        "job_name": "build-api",
-        "duration": 800.0,
-        "result": "SUCCESS"
-      }
-    }
-  ],
-  "anomaly_rate": 0.08
-}
-```
-
-**Example:**
-```bash
-curl -X POST http://localhost:5000/api/v1/detect \
-  -H "Content-Type: application/json" \
-  -d '{"threshold": 3.0, "send_alerts": true}'
-```
-
----
-
-### Get Recent Anomalies
-
-Retrieve recently detected anomalies.
-
-**Endpoint:** `GET /api/v1/anomalies?hours=24`
-
-**Query Parameters:**
-- `hours` (optional): Number of hours to look back (default: 24)
-
-**Response:**
-```json
-{
-  "success": true,
-  "count": 10,
-  "period_hours": 24,
-  "anomalies": [
-    {
-      "index": 5,
-      "max_z_score": 3.8,
-      "data": {
-        "job_name": "test-suite",
-        "duration": 500.0
-      }
+      "confidence": 0.85,
+      "severity": "high",
+      "detectors_agreed": ["isolation_forest", "lstm"],
+      "avg_score": 0.73,
+      "data": { "job_name": "build-api", "duration": 800 }
     }
   ]
 }
 ```
 
-**Example:**
-```bash
-curl http://localhost:5000/api/v1/anomalies?hours=48
+---
+
+### Predict Next Build
+
+**POST /api/v1/predict**
+
+Predict metrics for the next build using the LSTM time-series predictor.
+
+Request:
+```json
+{
+  "job_name": "build-api",
+  "sequence_length": 20
+}
 ```
+
+Response:
+```json
+{
+  "success": true,
+  "job_name": "build-api",
+  "predictions": {
+    "duration": {
+      "predicted": 312.5,
+      "lower_bound": 250.0,
+      "upper_bound": 375.0,
+      "confidence": 0.82
+    }
+  }
+}
+```
+
+---
+
+### Root Cause Analysis
+
+**POST /api/v1/analyze-cause**
+
+Analyse a specific anomaly to identify probable root causes and recommendations.
+
+Request:
+```json
+{
+  "anomaly": {
+    "data": { "job_name": "build-api", "duration": 800, "timestamp": "..." },
+    "anomaly_features": [
+      { "feature": "duration", "value": 800, "expected": 300, "z_score": 4.5 }
+    ]
+  },
+  "context": {
+    "commit_changes": { "files_changed": 45 },
+    "concurrent_builds": 7
+  }
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "analysis": {
+    "probable_causes": [
+      {
+        "cause": "Increased test count",
+        "description": "Test suite grew by 50%",
+        "confidence": 0.95
+      }
+    ],
+    "similar_incidents": [...],
+    "recommendations": [
+      {
+        "action": "Optimize test suite",
+        "priority": "high",
+        "details": "Parallelise tests or remove redundant ones",
+        "impact": "Can reduce build time by 20-40%"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Get Insights
+
+**GET /api/v1/insights**
+
+Return a summary of insights from the root cause analyzer across all analyzed incidents.
+
+---
+
+### Get Recent Anomalies
+
+**GET /api/v1/anomalies?hours=24**
+
+Retrieve anomalies detected in the last N hours.
 
 ---
 
 ### Get Report
 
+**GET /api/v1/report**
+
 Generate a summary report of metrics and anomalies.
-
-**Endpoint:** `GET /api/v1/report`
-
-**Response:**
-```json
-{
-  "generated_at": "2024-02-08T12:00:00",
-  "period": "7 days",
-  "total_metrics": 1000,
-  "total_anomalies": 50,
-  "anomaly_rate": 0.05,
-  "avg_duration": 250.5,
-  "max_duration": 800.0,
-  "result_distribution": {
-    "SUCCESS": 900,
-    "FAILURE": 100
-  },
-  "failure_rate": 0.1,
-  "total_jobs": 5,
-  "builds_per_job": 200.0
-}
-```
-
-**Example:**
-```bash
-curl http://localhost:5000/api/v1/report
-```
 
 ---
 
+### Get Status
+
+**GET /api/v1/status**
+
+Return current system status including model training state and data counts.
+
+---
+
+### Run Full Pipeline
+
+**POST /api/v1/pipeline**
+
+Execute collection, training, and detection in sequence.
+
+---
+
+## Flaky Test Endpoints
+
 ### Analyze Flaky Tests
 
-Analyze test execution history to detect flaky (intermittently failing) tests.
+**POST /api/v1/flaky-tests/analyze**
 
-**Endpoint:** `POST /api/v1/flaky-tests/analyze`
+Analyse test execution history to detect intermittently failing tests.
 
-**Request Body:**
+Request:
 ```json
-{
-  "days": 30  // days of history to analyze
-}
+{ "days": 30 }
 ```
 
-**Response:**
+Response:
 ```json
 {
   "success": true,
-  "flaky_tests_detected": 5,
+  "flaky_tests_detected": 3,
   "summary": {
-    "total_flaky_tests": 5,
-    "by_severity": {
-      "critical": 1,
-      "high": 2,
-      "medium": 1,
-      "low": 1
-    },
-    "estimated_wasted_time_hours": 12.5
+    "total_flaky_tests": 3,
+    "by_severity": { "high": 1, "medium": 2 },
+    "estimated_wasted_time_hours": 8.5
   },
   "flaky_tests": [
     {
@@ -254,58 +292,30 @@ Analyze test execution history to detect flaky (intermittently failing) tests.
       "severity": "high",
       "failure_rate": 0.35,
       "total_runs": 50,
-      "failures": 18
+      "failures": 18,
+      "flip_flops": 12
     }
   ]
 }
 ```
 
-**Example:**
-```bash
-curl -X POST http://localhost:5000/api/v1/flaky-tests/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"days": 30}'
-```
-
----
-
 ### Get Flaky Tests
 
-Get list of detected flaky tests.
+**GET /api/v1/flaky-tests**
 
-**Endpoint:** `GET /api/v1/flaky-tests`
+Return the current flaky test summary.
 
-**Response:**
-```json
-{
-  "success": true,
-  "summary": {
-    "total_flaky_tests": 5,
-    "by_severity": {...},
-    "estimated_wasted_time_hours": 12.5
-  }
-}
-```
+### Get Flaky Test Detail
 
-**Example:**
-```bash
-curl http://localhost:5000/api/v1/flaky-tests
-```
+**GET /api/v1/flaky-tests/{test_name}**
 
----
+Return full detail for a specific flaky test including execution history and recommendations.
 
-### Get Flaky Test Details
-
-Get detailed report for a specific flaky test including recommendations.
-
-**Endpoint:** `GET /api/v1/flaky-tests/<test_name>`
-
-**Response:**
 ```json
 {
   "success": true,
   "test": {
-    "test_name": "test_user_login",
+    "test_name": "test_payment_processing",
     "flakiness_score": 87.5,
     "severity": "high",
     "failure_rate": 0.35,
@@ -319,156 +329,142 @@ Get detailed report for a specific flaky test including recommendations.
         "priority": "high",
         "effort": "medium"
       }
-    ],
-    "recent_history": [...]
+    ]
   }
 }
 ```
 
-**Example:**
-```bash
-curl http://localhost:5000/api/v1/flaky-tests/test_user_login
-```
-
 ---
 
-### Get System Status
+## Smart Alert Endpoints
 
-Get current system status and metrics.
+### Get Alert Rules
 
-**Endpoint:** `GET /api/v1/status`
+**GET /api/v1/alerts/rules**
 
-**Response:**
+List all configured routing rules.
+
+### Add Alert Rule
+
+**POST /api/v1/alerts/rules**
+
+Add a routing rule. Rules are evaluated in insertion order; first match wins.
+
 ```json
 {
-  "model_trained": true,
-  "features": [
-    "duration",
-    "queue_time",
-    "test_count",
-    "failure_count"
-  ],
-  "total_metrics": 1000,
-  "total_anomalies": 50,
-  "anomaly_rate": 0.05,
-  "last_updated": "2024-02-08T12:00:00"
+  "name": "frontend-team",
+  "job_pattern": "frontend",
+  "min_severity": "medium",
+  "channels": ["slack"],
+  "team_name": "Frontend",
+  "slack_webhook": "https://hooks.slack.com/services/..."
 }
 ```
 
-**Example:**
-```bash
-curl http://localhost:5000/api/v1/status
-```
+Fields:
+- `name` (required): Unique rule identifier
+- `job_pattern`: Substring to match against job name. Omit to match all jobs.
+- `min_severity`: Minimum severity to route. One of `low`, `medium`, `high`, `critical`.
+- `channels`: Array of `slack`, `email`, `webhook`.
+- `slack_webhook`: Team-specific webhook override.
 
----
+### Remove Alert Rule
 
-### Run Full Pipeline
+**DELETE /api/v1/alerts/rules/{name}**
 
-Execute the complete data collection, training, and detection pipeline.
+### Get Maintenance Windows
 
-**Endpoint:** `POST /api/v1/pipeline`
+**GET /api/v1/alerts/maintenance**
 
-**Request Body:**
+List currently active maintenance windows.
+
+### Add Maintenance Window
+
+**POST /api/v1/alerts/maintenance**
+
+Suppress alerts during a planned maintenance period.
+
 ```json
 {
-  "source": "jenkins"  // or "github"
+  "name": "planned-deploy",
+  "start": "2026-02-18T02:00:00",
+  "end":   "2026-02-18T04:00:00",
+  "affected_jobs": ["deploy-prod", "deploy-staging"]
 }
 ```
 
-**Response:**
+Omit `affected_jobs` to suppress alerts for all jobs during the window.
+
+### Remove Maintenance Window
+
+**DELETE /api/v1/alerts/maintenance/{name}**
+
+### Get Alert Statistics
+
+**GET /api/v1/alerts/stats**
+
+Return suppression and delivery statistics.
+
 ```json
 {
   "success": true,
-  "metrics_collected": 200,
-  "training_stats": {
-    "samples": 500,
-    "features": 8,
-    "anomalies_detected": 50
-  },
-  "anomalies_detected": 15
+  "stats": {
+    "total_received": 120,
+    "total_sent": 18,
+    "suppressed_duplicate": 45,
+    "suppressed_maintenance": 12,
+    "suppressed_rate_limit": 5,
+    "suppressed_severity": 40,
+    "suppression_rate": 0.85,
+    "pending_in_batch": 0,
+    "active_maintenance_windows": 1,
+    "registered_rules": 3,
+    "alerts_last_hour": 4
+  }
 }
 ```
 
-**Example:**
-```bash
-curl -X POST http://localhost:5000/api/v1/pipeline \
-  -H "Content-Type: application/json" \
-  -d '{"source": "jenkins"}'
-```
+### Flush Alert Batch
 
----
+**POST /api/v1/alerts/flush**
 
-## Error Responses
-
-All endpoints may return error responses:
-
-**400 Bad Request:**
-```json
-{
-  "error": "Invalid parameter: source must be 'jenkins' or 'github'"
-}
-```
-
-**500 Internal Server Error:**
-```json
-{
-  "error": "Failed to connect to Jenkins server"
-}
-```
+Immediately send all pending batched alerts without waiting for the batch window to expire.
 
 ---
 
 ## Prometheus Metrics
 
-The system exposes Prometheus metrics on port 8000:
+Exposed on port 8000 at `/metrics`.
 
-**Endpoint:** `http://localhost:8000/metrics`
-
-**Available Metrics:**
-- `cicd_build_duration_seconds` - Build duration histogram
-- `cicd_build_total` - Total build count by result
-- `cicd_queue_time_seconds` - Queue time histogram
-- `cicd_test_count` - Number of tests
-- `cicd_failure_count` - Number of failures
-- `cicd_anomaly_score` - Anomaly score gauge
-- `cicd_anomaly_total` - Total anomalies detected
-- `cicd_model_accuracy` - Model accuracy
-- `cicd_model_last_trained_timestamp` - Last training timestamp
-- `cicd_active_jobs` - Number of active jobs
-- `cicd_data_points_total` - Total data points collected
-
----
-
-## Rate Limiting
-
-No rate limiting currently implemented. For production deployment, consider implementing rate limiting based on IP or API key.
+| Metric | Type | Description |
+|--------|------|-------------|
+| `cicd_build_duration_seconds` | Histogram | Build duration |
+| `cicd_build_total` | Counter | Builds by result |
+| `cicd_queue_time_seconds` | Histogram | Queue time |
+| `cicd_test_count` | Gauge | Tests per build |
+| `cicd_failure_count` | Gauge | Failures per build |
+| `cicd_anomaly_score` | Gauge | Anomaly score |
+| `cicd_anomaly_total` | Counter | Total anomalies |
+| `cicd_model_accuracy` | Gauge | Model accuracy |
+| `cicd_model_last_trained_timestamp` | Gauge | Last training time |
+| `cicd_active_jobs` | Gauge | Active job count |
+| `cicd_data_points_total` | Counter | Total data points |
 
 ---
 
-## WebSocket Support
+## Error Responses
 
-WebSocket support for real-time anomaly notifications is planned for future versions.
+**400 Bad Request**
+```json
+{ "error": "Missing required field: name" }
+```
 
----
+**404 Not Found**
+```json
+{ "error": "Test test_login not found or not flaky" }
+```
 
-## Best Practices
-
-1. **Initial Setup:**
-   - Collect at least 100-200 builds before training
-   - Use 30 days of data for initial training
-
-2. **Regular Operations:**
-   - Retrain model weekly or after significant pipeline changes
-   - Monitor anomaly rate (should be 5-15%)
-   - Adjust threshold based on false positive rate
-
-3. **Performance:**
-   - Batch collect metrics (50-100 at a time)
-   - Cache model predictions for identical metrics
-   - Use async processing for large datasets
-
-4. **Security:**
-   - Use HTTPS in production
-   - Implement API authentication
-   - Restrict access to sensitive endpoints
-   - Rotate credentials regularly
+**500 Internal Server Error**
+```json
+{ "error": "Failed to connect to Jenkins server" }
+```
