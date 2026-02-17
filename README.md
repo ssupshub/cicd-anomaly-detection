@@ -390,11 +390,4 @@ MIT License - see LICENSE file
 - [Jenkins API](https://www.jenkins.io/doc/book/using/remote-access-api/)
 - [GitHub Actions API](https://docs.github.com/en/rest/actions)
 
-## Roadmap
-
-- [ ] Support for more CI/CD platforms (GitLab CI, CircleCI)
-- [ ] Deep learning models (LSTM for time series)
-- [ ] Automatic threshold tuning
-- [ ] Root cause analysis suggestions
-- [ ] Multi-tenant support
-- [ ] Cloud deployment guides (AWS, GCP, Azure)
+---
