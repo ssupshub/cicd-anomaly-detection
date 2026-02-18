@@ -1,362 +1,294 @@
-# Quick Start Guide - CI/CD Anomaly Detection System
+# Quick Start Guide
 
-## 5-Minute Setup
+## Prerequisites
 
-### Prerequisites
-- Python 3.8+
-- Docker and Docker Compose (optional, recommended)
-- Jenkins or GitHub repository (for production use)
+- Python 3.8 or higher
+- Docker and Docker Compose (optional but recommended)
+- Access to Jenkins, GitHub Actions, or GitLab CI
 
-### Installation
+---
+
+## Installation
 
 ```bash
-# 1. Navigate to project directory
 cd cicd-anomaly-detection
-
-# 2. Run setup script
-./setup.sh
-
-# 3. Configure credentials
-nano .env  # Add your Jenkins/GitHub credentials
-
-# 4. Run demo to verify
-python demo.py
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.template .env
 ```
 
-## Three Deployment Options
+---
+
+## Deployment Options
 
 ### Option 1: Docker Compose (Recommended)
 
 ```bash
-# Start everything (API, Scheduler, Prometheus, Grafana)
 docker-compose up -d
 
-# Access services:
-# - API: http://localhost:5000
-# - Grafana: http://localhost:3000 (admin/admin)
-# - Prometheus: http://localhost:9090
+# Services:
+# API:        http://localhost:5000
+# Grafana:    http://localhost:3000  (admin / admin)
+# Prometheus: http://localhost:9090
 
-# View logs
-docker-compose logs -f
-
-# Stop everything
-docker-compose down
+docker-compose logs -f      # stream logs
+docker-compose down         # stop all services
 ```
 
-### Option 2: Python Scripts
+### Option 2: Manual Python
 
 ```bash
-# Terminal 1: Start API
-python api/app.py
-
-# Terminal 2: Start scheduler
-python scheduler.py
-
-# Terminal 3: Test API
-curl http://localhost:5000/health
+python api/app.py     # Terminal 1: API server
+python scheduler.py   # Terminal 2: Collection and detection scheduler
 ```
 
-### Option 3: Manual Testing
+### Option 3: Quick Demo
 
 ```bash
-# Run demo with mock data
 python demo.py
-
-# Collect real data
-curl -X POST http://localhost:5000/api/v1/collect \
-  -H "Content-Type: application/json" \
-  -d '{"source": "jenkins", "count": 100}'
-
-# Train model
-curl -X POST http://localhost:5000/api/v1/train
-
-# Detect anomalies
-curl -X POST http://localhost:5000/api/v1/detect
 ```
 
-##  First-Time Workflow
+---
 
-```bash
-# 1. Collect historical data (need 100+ builds)
-curl -X POST http://localhost:5000/api/v1/collect \
-  -d '{"source": "jenkins", "count": 200}'
+## First-Time Workflow
 
-# 2. Train the model
-curl -X POST http://localhost:5000/api/v1/train \
-  -d '{"days": 30, "contamination": 0.1}'
+### Step 1: Configure Credentials
 
-# 3. Start monitoring
-curl -X POST http://localhost:5000/api/v1/pipeline
+Edit `.env` with your credentials:
 
-# 4. Check status
-curl http://localhost:5000/api/v1/status
+```env
+# Jenkins (at least one source required)
+JENKINS_URL=http://your-jenkins:8080
+JENKINS_USER=admin
+JENKINS_TOKEN=your_api_token
 
-# 5. View recent anomalies
-curl http://localhost:5000/api/v1/anomalies?hours=24
-```
+# GitHub Actions (optional)
+GITHUB_TOKEN=your_github_token
+GITHUB_REPO=owner/repository
 
-##  Setting Up Alerts
+# GitLab CI (optional)
+GITLAB_URL=https://gitlab.com
+GITLAB_TOKEN=your_gitlab_token
+GITLAB_PROJECT=group/project
 
-### Slack Integration
+# Slack alerts (optional)
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 
-1. Create webhook: https://api.slack.com/apps → Incoming Webhooks
-2. Add to `.env`:
-   ```
-   SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK
-   ```
-3. Test:
-   ```bash
-   curl -X POST http://localhost:5000/api/v1/detect \
-     -d '{"send_alerts": true}'
-   ```
-
-### Email Alerts
-
-Add to `.env`:
-```
+# Email alerts (optional)
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
-ALERT_EMAIL=team@company.com
+SMTP_PASSWORD=your_app_password
+ALERT_EMAIL=alerts@yourcompany.com
+
+# Smart alerting (optional - defaults shown)
+ALERT_BATCH_WINDOW=60
+ALERT_DEDUP_WINDOW=300
+ALERT_MAX_PER_HOUR=20
 ```
 
-##  Using Grafana
+### Step 2: Collect Historical Data
 
-1. Access: http://localhost:3000
-2. Login: admin/admin
-3. Import dashboard:
-   - Go to Dashboards → Import
-   - Upload: `dashboards/grafana-dashboard.json`
-4. View real-time metrics
+Collect at least 100 builds before training. 200 or more is recommended for a reliable model.
 
-## 🎮 API Examples
-
-### Collect from Jenkins
 ```bash
+# Jenkins
 curl -X POST http://localhost:5000/api/v1/collect \
   -H "Content-Type: application/json" \
-  -d '{
-    "source": "jenkins",
-    "count": 100
-  }'
-```
+  -d '{"source": "jenkins", "count": 200}'
 
-### Collect from GitHub
-```bash
+# GitHub Actions
 curl -X POST http://localhost:5000/api/v1/collect \
   -H "Content-Type: application/json" \
-  -d '{
-    "source": "github",
-    "count": 100
-  }'
+  -d '{"source": "github", "count": 200}'
+
+# GitLab CI
+curl -X POST http://localhost:5000/api/v1/collect \
+  -H "Content-Type: application/json" \
+  -d '{"source": "gitlab", "count": 200}'
 ```
 
-### Train with Custom Settings
+### Step 3: Train the Ensemble
+
 ```bash
 curl -X POST http://localhost:5000/api/v1/train \
-  -H "Content-Type: application/json" \
-  -d '{
-    "days": 30,
-    "contamination": 0.15
-  }'
-```
-
-### Detect with Custom Threshold
-```bash
-curl -X POST http://localhost:5000/api/v1/detect \
-  -H "Content-Type: application/json" \
-  -d '{
-    "threshold": 2.5,
-    "send_alerts": true
-  }'
-```
-
-### Get Summary Report
-```bash
-curl http://localhost:5000/api/v1/report | jq .
-```
-
-### Analyze Flaky Tests
-```bash
-curl -X POST http://localhost:5000/api/v1/flaky-tests/analyze \
   -H "Content-Type: application/json" \
   -d '{"days": 30}'
 ```
 
-### Get Flaky Test List
+### Step 4: Detect Anomalies
+
 ```bash
-curl http://localhost:5000/api/v1/flaky-tests
+curl -X POST http://localhost:5000/api/v1/ensemble-detect \
+  -H "Content-Type: application/json" \
+  -d '{"send_alerts": true}'
 ```
 
-### Get Flaky Test Details
+### Step 5: Check Status
+
 ```bash
+curl http://localhost:5000/api/v1/status
+```
+
+---
+
+## Smart Alerting Setup
+
+### Add Team Routing Rules
+
+Configure which jobs alert which teams.
+
+```bash
+# Frontend team - medium severity and above only
+curl -X POST http://localhost:5000/api/v1/alerts/rules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "frontend-team",
+    "job_pattern": "frontend",
+    "min_severity": "medium",
+    "channels": ["slack"],
+    "slack_webhook": "https://hooks.slack.com/services/FRONTEND/CHANNEL"
+  }'
+
+# Production on-call - high severity and above, Slack and email
+curl -X POST http://localhost:5000/api/v1/alerts/rules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "production-oncall",
+    "job_pattern": "deploy-prod",
+    "min_severity": "high",
+    "channels": ["slack", "email"],
+    "team_name": "On-Call"
+  }'
+
+# Default catch-all rule
+curl -X POST http://localhost:5000/api/v1/alerts/rules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "default",
+    "min_severity": "medium",
+    "channels": ["slack"]
+  }'
+```
+
+### Register a Maintenance Window
+
+```bash
+curl -X POST http://localhost:5000/api/v1/alerts/maintenance \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "weekly-deploy",
+    "start": "2026-02-18T02:00:00",
+    "end":   "2026-02-18T04:00:00",
+    "affected_jobs": ["deploy-prod", "deploy-staging"]
+  }'
+```
+
+### View Alert Statistics
+
+```bash
+curl http://localhost:5000/api/v1/alerts/stats
+```
+
+---
+
+## Flaky Test Detection
+
+```bash
+# Analyze last 30 days
+curl -X POST http://localhost:5000/api/v1/flaky-tests/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"days": 30}'
+
+# View summary
+curl http://localhost:5000/api/v1/flaky-tests
+
+# Get recommendations for a specific test
 curl http://localhost:5000/api/v1/flaky-tests/test_user_login
 ```
 
-## Testing Individual Components
+---
 
-```bash
-# Test Jenkins collector
-python collectors/jenkins_collector.py
+## Grafana Dashboard
 
-# Test GitHub collector
-python collectors/github_collector.py
+1. Open http://localhost:3000 and log in with admin / admin
+2. Go to Dashboards then Browse
+3. Import `dashboards/grafana-dashboard.json`
 
-# Test ML model
-python ml/anomaly_detector.py
-
-# Test data storage
-python ml/data_storage.py
-
-# Run unit tests
-pytest tests/ -v
-```
-
-##  Common Issues
-
-### "Model not trained"
-```bash
-# Solution: Train the model first
-curl -X POST http://localhost:5000/api/v1/train
-```
-
-### "Not enough data"
-```bash
-# Solution: Collect more metrics
-curl -X POST http://localhost:5000/api/v1/collect \
-  -d '{"count": 200}'
-```
-
-### "Connection refused"
-```bash
-# Solution: Check credentials in .env
-# Test Jenkins connection:
-curl -u username:token http://jenkins-url/api/json
-```
-
-### No anomalies detected
-```bash
-# Solution: Lower the threshold
-curl -X POST http://localhost:5000/api/v1/detect \
-  -d '{"threshold": 2.0}'
-```
-
-##  Understanding Results
-
-### Anomaly Response Example
-```json
-{
-  "index": 5,
-  "max_z_score": 4.5,
-  "anomaly_features": [
-    {
-      "feature": "duration",
-      "value": 800.0,
-      "expected": 300.0,
-      "z_score": 4.5
-    }
-  ],
-  "data": {
-    "job_name": "build-api",
-    "duration": 800.0,
-    "result": "FAILURE"
-  }
-}
-```
-
-**What this means:**
-- Build took 800s instead of expected 300s
-- Z-score of 4.5 = very unusual (>99.99% probability of anomaly)
-- Build failed, worth investigating
-
-##  Configuration Tips
-
-### Adjust Sensitivity
-
-**Too many false positives?**
-- Increase threshold: `"threshold": 3.5`
-- Increase contamination: `"contamination": 0.15`
-
-**Missing real issues?**
-- Decrease threshold: `"threshold": 2.0`
-- Decrease contamination: `"contamination": 0.05`
-
-### Optimize Performance
-
-**Large datasets:**
-- Limit collection: `"count": 100`
-- Use sampling for training
-- Schedule training for off-hours
-
-**Frequent alerts:**
-- Batch alerts in scheduler
-- Set minimum severity threshold
-- Use digest mode (hourly summary)
-
-##  Production Checklist
-
-- [ ] Configure real Jenkins/GitHub credentials
-- [ ] Set up Slack webhook for alerts
-- [ ] Configure email SMTP settings
-- [ ] Enable HTTPS for API
-- [ ] Set up monitoring (Grafana)
-- [ ] Configure log rotation
-- [ ] Set up backup for models and data
-- [ ] Test alert delivery
-- [ ] Document team response procedures
-- [ ] Schedule regular model retraining
-
-##  File Structure
-
-```
-cicd-anomaly-detection/
-├── api/
-│   ├── app.py              # REST API
-│   └── alerting.py         # Alerts
-├── collectors/
-│   ├── jenkins_collector.py
-│   ├── github_collector.py
-│   └── prometheus_exporter.py
-├── ml/
-│   ├── anomaly_detector.py # ML models
-│   └── data_storage.py     # Data management
-├── config/                 # Configuration files
-├── dashboards/            # Grafana dashboards
-├── tests/                 # Unit tests
-├── demo.py               # Quick demo
-├── scheduler.py          # Automation
-├── docker-compose.yml    # Docker setup
-└── README.md            # Full docs
-```
-
-##  Getting Help
-
-1. Check logs: `docker-compose logs -f`
-2. Test health: `curl http://localhost:5000/health`
-3. Review README.md for detailed docs
-4. Check API.md for endpoint reference
-5. Run demo.py to verify setup
-
-##  Next Steps
-
-1. **Configure production credentials** in `.env`
-2. **Start Docker stack**: `docker-compose up -d`
-3. **Collect initial data**: Run for 24-48 hours
-4. **Train model**: POST to `/api/v1/train`
-5. **Monitor Grafana**: Check http://localhost:3000
-6. **Tune thresholds**: Based on false positive rate
-7. **Document incidents**: Track detected anomalies
+Dashboard panels include build rate by job, anomaly detection rate, duration percentiles, result distribution, anomaly scores, and model status.
 
 ---
 
-## Additional Resources
+## Verify Everything is Working
 
-- Full Documentation: README.md
-- API Reference: API.md
-- Architecture: OVERVIEW.md
-- Run Tests: `pytest tests/`
+```bash
+# Health check
+curl http://localhost:5000/health
+
+# System status
+curl http://localhost:5000/api/v1/status
+
+# Alert stats (check suppression is working)
+curl http://localhost:5000/api/v1/alerts/stats
+
+# Run integration tests
+python tests/test_integration.py
+```
+
+Expected output from integration tests: 6/6 tests passed.
 
 ---
 
-**CI/CD Anomaly Detection System - Production Ready**
+## Ongoing Operations
+
+### Daily
+
+- Review the Grafana dashboard for anomaly trends
+- Check alert statistics to confirm rules are routing correctly
+
+### Weekly
+
+- Retrain the model with the latest data:
+  ```bash
+  curl -X POST http://localhost:5000/api/v1/train -d '{"days": 30}'
+  ```
+- Run flaky test analysis and assign critical-severity tests for fixing
+
+### After Major Pipeline Changes
+
+- Retrain the model immediately so the new behaviour is learned quickly
+- Adjust `ANOMALY_THRESHOLD` if false positive rate increases
+
+---
+
+## Common Commands Reference
+
+```bash
+# Collect from all sources
+curl -X POST http://localhost:5000/api/v1/collect -d '{"source": "jenkins", "count": 100}'
+curl -X POST http://localhost:5000/api/v1/collect -d '{"source": "github",  "count": 100}'
+curl -X POST http://localhost:5000/api/v1/collect -d '{"source": "gitlab",  "count": 100}'
+
+# Train
+curl -X POST http://localhost:5000/api/v1/train -d '{"days": 30}'
+
+# Detect
+curl -X POST http://localhost:5000/api/v1/ensemble-detect -d '{"send_alerts": true}'
+
+# Recent anomalies
+curl "http://localhost:5000/api/v1/anomalies?hours=24"
+
+# Report
+curl http://localhost:5000/api/v1/report
+
+# Flaky tests
+curl -X POST http://localhost:5000/api/v1/flaky-tests/analyze -d '{"days": 30}'
+
+# Alert rules
+curl http://localhost:5000/api/v1/alerts/rules
+curl http://localhost:5000/api/v1/alerts/stats
+
+# Flush pending batch
+curl -X POST http://localhost:5000/api/v1/alerts/flush
+```
